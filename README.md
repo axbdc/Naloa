@@ -9,6 +9,9 @@ e contacto de cada lead) + calendário partilhável por link.
   um link único (`/partilha/<token>`) que qualquer pessoa com o link pode ver, sem
   precisar de login. Também podes partilhar o calendário inteiro. Podes remover
   ("Remover") qualquer link a qualquer momento — deixa logo de funcionar.
+- **Criar eventos.** Botão "+ Novo evento" no calendário — nome, datas, local, nota e
+  link. Fica logo visível no calendário e também na tabela de leads, numa secção
+  "Adicionados por ti".
 - **Base de dados:** Postgres. Recomendado: a integração **Neon** do Vercel
   (gratuita, storage.new dentro do dashboard do projeto) — fica tudo em 2 cliques,
   sem sair do Vercel. Alternativa igualmente boa e gratuita: [Neon](https://neon.tech)
