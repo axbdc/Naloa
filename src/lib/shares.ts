@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { db, getLeadById, getLeadsWithDates, type Lead } from "./db";
+import { getDb, getLeadById, getLeadsWithDates, type Lead } from "./db";
 
 export interface Share {
   token: string;
@@ -11,7 +11,9 @@ export interface Share {
   revoked: boolean;
 }
 
-const sharesCol = db.collection("shares");
+function sharesCol() {
+  return getDb().collection("shares");
+}
 
 function normalizeShareDoc(token: string, data: FirebaseFirestore.DocumentData): Share {
   return {
@@ -39,14 +41,14 @@ export async function createShare(
     expires_at: null,
     revoked: false,
   };
-  await sharesCol.doc(token).set(data);
+  await sharesCol().doc(token).set(data);
   return { token, ...data };
 }
 
 // A coleção de partilhas é pequena (algumas dezenas no máximo) — filtramos e
 // ordenamos em JS para evitar precisar de um índice composto no Firestore.
 export async function listShares(): Promise<Share[]> {
-  const snap = await sharesCol.get();
+  const snap = await sharesCol().get();
   return snap.docs
     .map((d) => normalizeShareDoc(d.id, d.data()))
     .filter((s) => !s.revoked)
@@ -54,13 +56,13 @@ export async function listShares(): Promise<Share[]> {
 }
 
 export async function revokeShare(token: string): Promise<void> {
-  await sharesCol.doc(token).set({ revoked: true }, { merge: true });
+  await sharesCol().doc(token).set({ revoked: true }, { merge: true });
 }
 
 export async function resolveShare(
   token: string
 ): Promise<{ share: Share; lead: Lead | null; allLeads: Lead[] | null } | null> {
-  const doc = await sharesCol.doc(token).get();
+  const doc = await sharesCol().doc(token).get();
   if (!doc.exists) return null;
   const share = normalizeShareDoc(doc.id, doc.data()!);
   if (share.revoked) return null;
