@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Naloa · Radar de Prospeção (webapp)
 
-## Getting Started
+Webapp privada da Naloa: tabela de leads (com estado de contacto, redes sociais, site
+e contacto de cada lead) + calendário partilhável por link.
 
-First, run the development server:
+- **Só tu tens acesso.** A app inteira está atrás de uma password (`APP_PASSWORD`).
+  Não há contas nem lista de utilizadores.
+- **Partilha por link.** No calendário, cada evento tem um botão "Partilhar" que gera
+  um link único (`/partilha/<token>`) que qualquer pessoa com o link pode ver, sem
+  precisar de login. Também podes partilhar o calendário inteiro. Podes remover
+  ("Remover") qualquer link a qualquer momento — deixa logo de funcionar.
+- **Base de dados:** Postgres. Recomendado: a integração **Neon** do Vercel
+  (gratuita, storage.new dentro do dashboard do projeto) — fica tudo em 2 cliques,
+  sem sair do Vercel. Alternativa igualmente boa e gratuita: [Neon](https://neon.tech)
+  ou [Supabase](https://supabase.com) diretamente.
+
+## Estrutura
+
+- `src/app/(app)/leads` — tabela de leads, agrupada por setor, com botões de estado
+  (Por contactar / Contactado / Fechado) e campos editáveis (redes sociais, site,
+  contacto, notas).
+- `src/app/(app)/calendario` — todos os eventos com data, agrupados por mês, com
+  partilha por link.
+- `src/app/partilha/[token]` — página pública (sem login) que mostra um evento ou o
+  calendário completo consoante o link partilhado.
+- `src/app/login` — a única página acessível sem sessão, além de `/partilha/*`.
+- `seed/` — dados iniciais (os leads pesquisados) + esquema SQL + script de seed.
+
+## Correr localmente
 
 ```bash
+npm install
+cp .env.example .env.local   # preenche DATABASE_URL, APP_PASSWORD, APP_SECRET
+npm run seed                 # cria as tabelas e insere os leads
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre http://localhost:3000 e entra com a `APP_PASSWORD` que definiste.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Publicar (GitHub → Vercel)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Criar o repositório no GitHub** (github.com → New repository, vazio, sem
+   README). Depois, neste projeto:
 
-## Learn More
+   ```bash
+   git remote add origin https://github.com/<o-teu-user>/naloa-app.git
+   git branch -M main
+   git push -u origin main
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. **Importar no Vercel**: vercel.com → Add New → Project → escolhe o repositório
+   `naloa-app` no GitHub. O Vercel deteta Next.js automaticamente, não precisas de
+   mudar nenhuma definição de build.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. **Base de dados (antes do primeiro deploy, ou logo a seguir)**: no projeto no
+   Vercel → separador **Storage** → **Create Database** → escolhe **Neon**
+   (Postgres serverless, tem plano gratuito). Isto cria automaticamente a variável
+   `DATABASE_URL` (ou `POSTGRES_URL`) no projeto — não precisas de copiar nada à mão.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. **Variáveis de ambiente**: Project → Settings → Environment Variables, adiciona:
+   - `APP_PASSWORD` — a password que vais usar para entrar
+   - `APP_SECRET` — uma string aleatória longa (gera com
+     `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
 
-## Deploy on Vercel
+5. **Deploy**. Depois do primeiro deploy com sucesso, corre o seed uma vez contra a
+   base de dados de produção (a partir do teu computador, com a `DATABASE_URL` que o
+   Vercel te deu em Settings → Environment Variables → copia o valor):
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```bash
+   DATABASE_URL="<cola aqui a connection string do Vercel/Neon>" node seed/seed.mjs
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   Isto cria as tabelas e insere os 68 leads. Corres isto de novo sempre que eu
+   atualizar os dados de origem em `seed/data.mjs` (nunca apaga o estado que já
+   tenhas guardado nem os links de partilha ativos).
+
+A partir daqui, qualquer `git push` para `main` faz o Vercel publicar
+automaticamente a nova versão.
+
+## Porquê Neon/Postgres em vez de outra coisa
+
+Precisas de um sítio para guardar o estado dos leads (estado de contacto, notas) e os
+links de partilha — e que sobreviva a um simples refresh da página, ao contrário da
+versão anterior que guardava tudo só no browser. Neon é Postgres a sério, plano
+gratuito generoso para este volume de dados (algumas centenas de linhas), e integra-se
+no Vercel com dois cliques (a variável de ligação aparece sozinha, sem copiar
+credenciais). Se preferires, o Supabase é uma alternativa igualmente sólida e
+gratuita — o código não muda, só precisas de colar a connection string dele em
+`DATABASE_URL`.
