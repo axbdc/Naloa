@@ -24,6 +24,8 @@ export const sections: SectionMeta[] = [
     note: "Pouco de concreto para out–dez além do que já está listado acima." },
   { key: "continental", label: "Portugal Continental — fins de semana", tag: "evento datado",
     note: "Vale a pena se o pagamento/prestígio cobrir viagem + estadia e ainda sobrar lucro." },
+  { key: "manual", label: "Adicionados por ti", tag: "novo",
+    note: "Eventos que criaste diretamente no calendário." },
 ];
 
 export function sectionMeta(key: string): SectionMeta {

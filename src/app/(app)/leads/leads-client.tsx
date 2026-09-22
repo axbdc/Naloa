@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import type { Lead, LeadStatus } from "@/lib/db";
 import type { SectionMeta } from "@/lib/sections";
 import { STATUS_LABELS, STATUS_ORDER } from "@/lib/sections";
@@ -14,6 +15,16 @@ async function patchLead(id: string, body: Record<string, string>) {
   if (!res.ok) throw new Error("save_failed");
   return res.json();
 }
+
+const listVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.035 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 320, damping: 30 } },
+};
 
 function StatusButtons({ id, status }: { id: string; status: LeadStatus }) {
   const [current, setCurrent] = useState(status);
@@ -33,21 +44,33 @@ function StatusButtons({ id, status }: { id: string; status: LeadStatus }) {
     }
   }
 
-  const styles: Record<LeadStatus, string> = {
-    todo: "bg-[#e6e7e2] text-[#6b6f68]",
-    contactado: "bg-[#f1e6c6] text-[#8a6d1f]",
-    fechado: "bg-[#dfe9de] text-[#3f6b3f]",
+  const textStyles: Record<LeadStatus, string> = {
+    todo: "text-[#6b6f68]",
+    contactado: "text-[#8a6d1f]",
+    fechado: "text-[#3f6b3f]",
+  };
+  const highlightStyles: Record<LeadStatus, string> = {
+    todo: "bg-[#e6e7e2]",
+    contactado: "bg-[#f1e6c6]",
+    fechado: "bg-[#dfe9de]",
   };
 
   return (
-    <div className="inline-flex rounded-full border border-[#d8dbd3] overflow-hidden text-[11px] font-semibold uppercase tracking-wide">
+    <div className="relative inline-flex rounded-full border border-[#d8dbd3] overflow-hidden text-[11px] font-semibold uppercase tracking-wide bg-white">
       {STATUS_ORDER.map((s) => (
         <button
           key={s}
           onClick={() => setStatus(s)}
           disabled={saving}
-          className={`px-2.5 py-1 transition-colors ${current === s ? styles[s] : "bg-white text-[#9a9d97] hover:bg-[#f4f5f2]"}`}
+          className={`relative px-2.5 py-1 transition-colors ${current === s ? textStyles[s] : "text-[#9a9d97] hover:bg-[#f4f5f2]"}`}
         >
+          {current === s && (
+            <motion.span
+              layoutId={`status-highlight-${id}`}
+              className={`absolute inset-0 -z-10 ${highlightStyles[s]}`}
+              transition={{ type: "spring", stiffness: 500, damping: 34 }}
+            />
+          )}
           {STATUS_LABELS[s]}
         </button>
       ))}
@@ -96,7 +119,13 @@ function EditableField({
 
 export default function LeadsClient({ section, leads }: { section: SectionMeta; leads: Lead[] }) {
   return (
-    <section className="mb-8">
+    <motion.section
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: 0.45, ease: "easeOut" }}
+      className="mb-8"
+    >
       <h2 className="flex items-baseline gap-2.5 text-lg font-semibold mb-1">
         {section.label}
         {section.tag && (
@@ -107,9 +136,15 @@ export default function LeadsClient({ section, leads }: { section: SectionMeta; 
       </h2>
       {section.note && <p className="text-[13px] text-[#565b53] max-w-[70ch] mb-3">{section.note}</p>}
 
-      <div className="bg-white border border-[#d8dbd3] rounded-xl overflow-hidden divide-y divide-[#d8dbd3]">
+      <motion.div
+        variants={listVariants}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: "-40px" }}
+        className="bg-white border border-[#d8dbd3] rounded-xl overflow-hidden divide-y divide-[#d8dbd3]"
+      >
         {leads.map((lead) => (
-          <div key={lead.id} className="p-3.5">
+          <motion.div key={lead.id} variants={itemVariants} className="p-3.5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-2">
@@ -152,9 +187,9 @@ export default function LeadsClient({ section, leads }: { section: SectionMeta; 
               <div className="text-[10px] uppercase tracking-wide text-[#9a9d97]">Notas</div>
               <EditableField id={lead.id} field="notas" value={lead.notas} placeholder="Sem notas" />
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
-    </section>
+      </motion.div>
+    </motion.section>
   );
 }

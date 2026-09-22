@@ -64,3 +64,41 @@ export async function getLeadById(id: string): Promise<Lead | null> {
   const rows = await sql<Lead[]>`SELECT ${LEAD_COLUMNS} FROM leads WHERE id = ${id} LIMIT 1`;
   return rows[0] ?? null;
 }
+
+function slugify(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 40);
+}
+
+export interface NewLeadInput {
+  name: string;
+  section?: string;
+  date_label?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  sub?: string | null;
+  local?: string | null;
+  angle?: string | null;
+  link?: string | null;
+}
+
+export async function createLead(input: NewLeadInput): Promise<Lead> {
+  const base = slugify(input.name) || "evento";
+  const id = `manual-${base}-${Math.random().toString(36).slice(2, 7)}`;
+  const rows = await sql<Lead[]>`
+    INSERT INTO leads (
+      id, section, sort_order, date_label, start_date, end_date, name, sub, local, angle, link
+    ) VALUES (
+      ${id}, ${input.section ?? "manual"}, ${Math.floor(Date.now() / 1000)}, ${input.date_label ?? null},
+      ${input.start_date ?? null}, ${input.end_date ?? null}, ${input.name},
+      ${input.sub ?? null}, ${input.local ?? null}, ${input.angle ?? null}, ${input.link ?? null}
+    )
+    RETURNING ${LEAD_COLUMNS}
+  `;
+  return rows[0];
+}
