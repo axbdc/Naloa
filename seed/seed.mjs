@@ -1,61 +1,85 @@
-// Corre com: node seed/seed.mjs
-// Lê DATABASE_URL (ou POSTGRES_URL) do ambiente, cria as tabelas se não existirem
-// e faz upsert de todos os leads a partir de seed/data.mjs.
-// Nunca apaga "status" nem "shares" existentes — só atualiza os campos de conteúdo.
+// Corre com: npm run seed
+// Lê as credenciais do Firebase do ambiente (FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL /
+// FIREBASE_PRIVATE_KEY, ou FIRESTORE_EMULATOR_HOST em dev local) e faz upsert de todos os
+// leads a partir de seed/data.mjs na coleção "leads" do Firestore.
+// Nunca apaga "status" de leads existentes — só atualiza os campos de conteúdo.
 
-import postgres from "postgres";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 import { leads } from "./data.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+const projectId = process.env.FIREBASE_PROJECT_ID;
+const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+const usingEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 
-if (!connectionString) {
-  console.error("Define DATABASE_URL (ou POSTGRES_URL) antes de correr o seed.");
+if (!usingEmulator && (!projectId || !clientEmail || !privateKey)) {
+  console.error(
+    "Define FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL e FIREBASE_PRIVATE_KEY antes de correr o seed."
+  );
   process.exit(1);
 }
 
-const sql = postgres(connectionString, { ssl: connectionString.includes("localhost") ? false : "require" });
+if (!getApps().length) {
+  initializeApp(
+    usingEmulator ? { projectId: projectId ?? "naloa-dev" } : { credential: cert({ projectId, clientEmail, privateKey }) }
+  );
+}
+
+const db = getFirestore();
+const leadsCol = db.collection("leads");
 
 async function main() {
-  const schema = readFileSync(join(__dirname, "schema.sql"), "utf8");
-  await sql.unsafe(schema);
-  console.log(`Esquema pronto. A inserir/atualizar ${leads.length} leads...`);
+  console.log(`A inserir/atualizar ${leads.length} leads...`);
 
-  let i = 0;
-  for (const lead of leads) {
-    i += 1;
-    await sql`
-      INSERT INTO leads (
-        id, section, sort_order, date_label, start_date, end_date,
-        name, sub, local, angle, link, redes_sociais, site, contacto, notas
-      ) VALUES (
-        ${lead.id}, ${lead.section}, ${i}, ${lead.date_label}, ${lead.start_date}, ${lead.end_date},
-        ${lead.name}, ${lead.sub}, ${lead.local}, ${lead.angle}, ${lead.link},
-        ${lead.redes_sociais}, ${lead.site}, ${lead.contacto}, ${lead.notas}
-      )
-      ON CONFLICT (id) DO UPDATE SET
-        section = EXCLUDED.section,
-        sort_order = EXCLUDED.sort_order,
-        date_label = EXCLUDED.date_label,
-        start_date = EXCLUDED.start_date,
-        end_date = EXCLUDED.end_date,
-        name = EXCLUDED.name,
-        sub = EXCLUDED.sub,
-        local = EXCLUDED.local,
-        angle = EXCLUDED.angle,
-        link = EXCLUDED.link,
-        redes_sociais = EXCLUDED.redes_sociais,
-        site = EXCLUDED.site,
-        contacto = EXCLUDED.contacto,
-        notas = EXCLUDED.notas;
-    `;
+  let batch = db.batch();
+  let opsInBatch = 0;
+  let total = 0;
+
+  for (let i = 0; i < leads.length; i++) {
+    const lead = leads[i];
+    const ref = leadsCol.doc(lead.id);
+    // set com merge:true preserva "status" e "updated_at" de leads que já existem
+    // (não fazem parte deste payload), e cria-os com status "todo" quando é a
+    // primeira vez que o documento aparece.
+    const existing = await ref.get();
+    const data = {
+      section: lead.section,
+      sort_order: i + 1,
+      date_label: lead.date_label ?? null,
+      start_date: lead.start_date ?? null,
+      end_date: lead.end_date ?? null,
+      name: lead.name,
+      sub: lead.sub ?? null,
+      local: lead.local ?? null,
+      angle: lead.angle ?? null,
+      link: lead.link ?? null,
+      redes_sociais: lead.redes_sociais ?? null,
+      site: lead.site ?? null,
+      contacto: lead.contacto ?? null,
+      notas: lead.notas ?? null,
+    };
+    if (!existing.exists) {
+      data.status = "todo";
+      data.updated_at = new Date().toISOString();
+    }
+    batch.set(ref, data, { merge: true });
+    opsInBatch += 1;
+    total += 1;
+
+    // Firestore limita batches a 500 operações.
+    if (opsInBatch === 450) {
+      await batch.commit();
+      batch = db.batch();
+      opsInBatch = 0;
+    }
   }
 
-  console.log("Seed concluído.");
-  await sql.end();
+  if (opsInBatch > 0) {
+    await batch.commit();
+  }
+
+  console.log(`Seed concluído. ${total} leads processados.`);
 }
 
 main().catch((err) => {

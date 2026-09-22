@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql } from "@/lib/db";
-
-const EDITABLE_FIELDS = ["status", "redes_sociais", "site", "contacto", "notas"] as const;
-type EditableField = (typeof EDITABLE_FIELDS)[number];
+import { updateLead, EDITABLE_LEAD_FIELDS, type EditableLeadField } from "@/lib/db";
 
 const STATUS_VALUES = new Set(["todo", "contactado", "fechado"]);
 
@@ -13,8 +10,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
 
-  const updates: Partial<Record<EditableField, string>> = {};
-  for (const field of EDITABLE_FIELDS) {
+  const updates: Partial<Record<EditableLeadField, string>> = {};
+  for (const field of EDITABLE_LEAD_FIELDS) {
     if (field in body) {
       const value = body[field];
       if (typeof value !== "string") {
@@ -31,21 +28,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ error: "no_fields" }, { status: 400 });
   }
 
-  const rows = await sql`
-    UPDATE leads SET
-      status = COALESCE(${updates.status ?? null}, status),
-      redes_sociais = CASE WHEN ${"redes_sociais" in updates} THEN ${updates.redes_sociais ?? null} ELSE redes_sociais END,
-      site = CASE WHEN ${"site" in updates} THEN ${updates.site ?? null} ELSE site END,
-      contacto = CASE WHEN ${"contacto" in updates} THEN ${updates.contacto ?? null} ELSE contacto END,
-      notas = CASE WHEN ${"notas" in updates} THEN ${updates.notas ?? null} ELSE notas END,
-      updated_at = now()
-    WHERE id = ${id}
-    RETURNING *
-  `;
-
-  if (rows.length === 0) {
+  const lead = await updateLead(id, updates);
+  if (!lead) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  return NextResponse.json({ lead: rows[0] });
+  return NextResponse.json({ lead });
 }

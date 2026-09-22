@@ -1,28 +1,43 @@
-import postgres from "postgres";
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
 declare global {
-  var __naloaSql: ReturnType<typeof postgres> | undefined;
+  var __naloaFirestore: ReturnType<typeof getFirestore> | undefined;
 }
 
-const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+function initFirestore() {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
 
-if (!connectionString) {
-  throw new Error(
-    "DATABASE_URL (ou POSTGRES_URL) não está definida. Configura a ligação à base de dados."
-  );
+  if (!projectId || !clientEmail || !privateKey) {
+    // No Firestore Emulator: usamos as credenciais de serviço.
+    if (!process.env.FIRESTORE_EMULATOR_HOST) {
+      throw new Error(
+        "FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY não estão definidas. Configura as credenciais do Firebase."
+      );
+    }
+  }
+
+  if (!getApps().length) {
+    initializeApp(
+      process.env.FIRESTORE_EMULATOR_HOST
+        ? { projectId: projectId ?? "naloa-dev" }
+        : { credential: cert({ projectId, clientEmail, privateKey }) }
+    );
+  }
+
+  return getFirestore();
 }
 
 // Reutiliza a ligação entre hot-reloads em dev e entre invocações serverless quando possível.
-export const sql =
-  global.__naloaSql ??
-  postgres(connectionString, {
-    ssl: connectionString.includes("localhost") ? false : "require",
-    max: 5,
-  });
+export const db = global.__naloaFirestore ?? initFirestore();
 
 if (process.env.NODE_ENV !== "production") {
-  global.__naloaSql = sql;
+  global.__naloaFirestore = db;
 }
+
+const leadsCol = db.collection("leads");
 
 export type LeadStatus = "todo" | "contactado" | "fechado";
 
@@ -46,23 +61,49 @@ export interface Lead {
   updated_at: string;
 }
 
-// Nota: castamos start_date/end_date para texto porque o driver "postgres" devolve
-// colunas DATE como objetos Date por omissão — queremos sempre strings "YYYY-MM-DD".
-export const LEAD_COLUMNS = sql`
-  id, section, sort_order, date_label, start_date::text, end_date::text,
-  name, sub, local, angle, link, redes_sociais, site, contacto, notas, status, updated_at
-`;
+// Campos opcionais com omissão explícita -> null, para o documento ficar sempre
+// com as mesmas chaves (facilita ler/editar no Firebase Console).
+function normalizeLeadDoc(id: string, data: FirebaseFirestore.DocumentData): Lead {
+  return {
+    id,
+    section: data.section,
+    sort_order: data.sort_order ?? 0,
+    date_label: data.date_label ?? null,
+    start_date: data.start_date ?? null,
+    end_date: data.end_date ?? null,
+    name: data.name,
+    sub: data.sub ?? null,
+    local: data.local ?? null,
+    angle: data.angle ?? null,
+    link: data.link ?? null,
+    redes_sociais: data.redes_sociais ?? null,
+    site: data.site ?? null,
+    contacto: data.contacto ?? null,
+    notas: data.notas ?? null,
+    status: (data.status ?? "todo") as LeadStatus,
+    updated_at: data.updated_at ?? new Date(0).toISOString(),
+  };
+}
 
 export async function getAllLeads(): Promise<Lead[]> {
-  const rows = await sql<Lead[]>`
-    SELECT ${LEAD_COLUMNS} FROM leads ORDER BY sort_order ASC
-  `;
-  return rows;
+  const snap = await leadsCol.orderBy("sort_order", "asc").get();
+  return snap.docs.map((d) => normalizeLeadDoc(d.id, d.data()));
+}
+
+// Equivalente a "WHERE start_date IS NOT NULL ORDER BY start_date ASC".
+// Filtramos/ordenamos em JS em vez de usar uma query composta do Firestore
+// (evita ter de criar um índice composto manualmente) — a coleção é pequena.
+export async function getLeadsWithDates(): Promise<Lead[]> {
+  const all = await getAllLeads();
+  return all
+    .filter((l) => l.start_date)
+    .sort((a, b) => (a.start_date! < b.start_date! ? -1 : a.start_date! > b.start_date! ? 1 : 0));
 }
 
 export async function getLeadById(id: string): Promise<Lead | null> {
-  const rows = await sql<Lead[]>`SELECT ${LEAD_COLUMNS} FROM leads WHERE id = ${id} LIMIT 1`;
-  return rows[0] ?? null;
+  const doc = await leadsCol.doc(id).get();
+  if (!doc.exists) return null;
+  return normalizeLeadDoc(doc.id, doc.data()!);
 }
 
 function slugify(text: string): string {
@@ -90,15 +131,45 @@ export interface NewLeadInput {
 export async function createLead(input: NewLeadInput): Promise<Lead> {
   const base = slugify(input.name) || "evento";
   const id = `manual-${base}-${Math.random().toString(36).slice(2, 7)}`;
-  const rows = await sql<Lead[]>`
-    INSERT INTO leads (
-      id, section, sort_order, date_label, start_date, end_date, name, sub, local, angle, link
-    ) VALUES (
-      ${id}, ${input.section ?? "manual"}, ${Math.floor(Date.now() / 1000)}, ${input.date_label ?? null},
-      ${input.start_date ?? null}, ${input.end_date ?? null}, ${input.name},
-      ${input.sub ?? null}, ${input.local ?? null}, ${input.angle ?? null}, ${input.link ?? null}
-    )
-    RETURNING ${LEAD_COLUMNS}
-  `;
-  return rows[0];
+  const now = new Date().toISOString();
+  const data = {
+    section: input.section ?? "manual",
+    sort_order: Math.floor(Date.now() / 1000),
+    date_label: input.date_label ?? null,
+    start_date: input.start_date ?? null,
+    end_date: input.end_date ?? null,
+    name: input.name,
+    sub: input.sub ?? null,
+    local: input.local ?? null,
+    angle: input.angle ?? null,
+    link: input.link ?? null,
+    redes_sociais: null,
+    site: null,
+    contacto: null,
+    notas: null,
+    status: "todo" as LeadStatus,
+    updated_at: now,
+  };
+  await leadsCol.doc(id).set(data);
+  return { id, ...data };
+}
+
+export const EDITABLE_LEAD_FIELDS = ["status", "redes_sociais", "site", "contacto", "notas"] as const;
+export type EditableLeadField = (typeof EDITABLE_LEAD_FIELDS)[number];
+
+export async function updateLead(
+  id: string,
+  updates: Partial<Record<EditableLeadField, string>>
+): Promise<Lead | null> {
+  const ref = leadsCol.doc(id);
+  const doc = await ref.get();
+  if (!doc.exists) return null;
+
+  await ref.update({
+    ...updates,
+    updated_at: new Date().toISOString(),
+  });
+
+  const updated = await ref.get();
+  return normalizeLeadDoc(updated.id, updated.data()!);
 }
