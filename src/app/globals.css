@@ -1,8 +1,58 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f5f2;
-  --foreground: #171916;
+  --c-bg: #f4f5f2;
+  --c-card: #ffffff;
+  --c-surface: #eceee9;
+  --c-surface-2: #e6e7e2;
+  --c-border: #d8dbd3;
+  --c-ink: #171916;
+  --c-muted: #565b53;
+  --c-muted-2: #9a9d97;
+  --c-muted-3: #6b6f68;
+  --c-accent: #c76a1f;
+  --c-accent-deep: #5a2d0c;
+  --c-on-accent: #ffffff;
+  --c-amber-text: #8a6d1f;
+  --c-amber-bg: #f4dfc8;
+  --c-amber-bg-2: #f1e6c6;
+  --c-green-bg: #dfe9de;
+  --c-green-text: #3f6b3f;
+  --c-button-primary-bg: #171916;
+  --c-button-primary-text: #ffffff;
+  --c-header-shadow: rgba(23, 25, 22, 0.12);
+  --c-overlay: rgba(20, 20, 15, 0.45);
+
+  --background: var(--c-bg);
+  --foreground: var(--c-ink);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --c-bg: #14140f;
+  --c-card: #1e1e17;
+  --c-surface: #24241b;
+  --c-surface-2: #2c2c21;
+  --c-border: #38382a;
+  --c-ink: #f2f0e6;
+  --c-muted: #b8b6a8;
+  --c-muted-2: #8c8a7c;
+  --c-muted-3: #79776a;
+  --c-accent: #d68a3c;
+  --c-accent-deep: #f0b877;
+  --c-on-accent: #ffffff;
+  --c-amber-text: #e0c992;
+  --c-amber-bg: #3a2f16;
+  --c-amber-bg-2: #362c14;
+  --c-green-bg: #1c2e1c;
+  --c-green-text: #8fc98f;
+  --c-button-primary-bg: #f2f0e6;
+  --c-button-primary-text: #14140f;
+  --c-header-shadow: rgba(255, 255, 255, 0.08);
+  --c-overlay: rgba(0, 0, 0, 0.6);
+
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -17,7 +67,8 @@ html {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--c-bg);
+  color: var(--c-ink);
   font-family: var(--font-sans);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }

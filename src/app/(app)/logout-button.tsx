@@ -12,7 +12,7 @@ export default function LogoutButton() {
   return (
     <button
       onClick={onClick}
-      className="text-xs uppercase tracking-wide text-[#565b53] hover:text-[#171916] transition-colors"
+      className="text-xs uppercase tracking-wide text-[var(--c-muted)] hover:text-[var(--c-ink)] transition-colors"
     >
       Sair
     </button>

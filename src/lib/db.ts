@@ -40,6 +40,13 @@ if (process.env.NODE_ENV !== "production") {
 const leadsCol = db.collection("leads");
 
 export type LeadStatus = "todo" | "contactado" | "fechado";
+export type ServiceType = "fotografia" | "video" | "ambos" | "drone" | "outro";
+export type PaymentStatus = "pendente" | "pago";
+
+export interface EquipmentItem {
+  item: string;
+  checked: boolean;
+}
 
 export interface Lead {
   id: string;
@@ -59,6 +66,14 @@ export interface Lead {
   notas: string | null;
   status: LeadStatus;
   updated_at: string;
+  // Ficha de evento (funcionalidades de gestão de cobertura)
+  start_time: string | null;
+  end_time: string | null;
+  service_type: ServiceType | null;
+  team: string | null;
+  equipment: EquipmentItem[];
+  budget: number | null;
+  payment_status: PaymentStatus | null;
 }
 
 // Campos opcionais com omissão explícita -> null, para o documento ficar sempre
@@ -82,6 +97,13 @@ function normalizeLeadDoc(id: string, data: FirebaseFirestore.DocumentData): Lea
     notas: data.notas ?? null,
     status: (data.status ?? "todo") as LeadStatus,
     updated_at: data.updated_at ?? new Date(0).toISOString(),
+    start_time: data.start_time ?? null,
+    end_time: data.end_time ?? null,
+    service_type: data.service_type ?? null,
+    team: data.team ?? null,
+    equipment: Array.isArray(data.equipment) ? data.equipment : [],
+    budget: typeof data.budget === "number" ? data.budget : null,
+    payment_status: data.payment_status ?? null,
   };
 }
 
@@ -126,6 +148,13 @@ export interface NewLeadInput {
   local?: string | null;
   angle?: string | null;
   link?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  service_type?: ServiceType | null;
+  team?: string | null;
+  equipment?: EquipmentItem[];
+  budget?: number | null;
+  payment_status?: PaymentStatus | null;
 }
 
 export async function createLead(input: NewLeadInput): Promise<Lead> {
@@ -149,18 +178,47 @@ export async function createLead(input: NewLeadInput): Promise<Lead> {
     notas: null,
     status: "todo" as LeadStatus,
     updated_at: now,
+    start_time: input.start_time ?? null,
+    end_time: input.end_time ?? null,
+    service_type: input.service_type ?? null,
+    team: input.team ?? null,
+    equipment: input.equipment ?? [],
+    budget: input.budget ?? null,
+    payment_status: input.payment_status ?? null,
   };
   await leadsCol.doc(id).set(data);
   return { id, ...data };
 }
 
-export const EDITABLE_LEAD_FIELDS = ["status", "redes_sociais", "site", "contacto", "notas"] as const;
+export const EDITABLE_LEAD_FIELDS = [
+  "status",
+  "redes_sociais",
+  "site",
+  "contacto",
+  "notas",
+  "start_time",
+  "end_time",
+  "service_type",
+  "team",
+] as const;
 export type EditableLeadField = (typeof EDITABLE_LEAD_FIELDS)[number];
 
-export async function updateLead(
-  id: string,
-  updates: Partial<Record<EditableLeadField, string>>
-): Promise<Lead | null> {
+export interface LeadUpdateInput {
+  status?: LeadStatus;
+  redes_sociais?: string | null;
+  site?: string | null;
+  contacto?: string | null;
+  notas?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  service_type?: ServiceType | null;
+  team?: string | null;
+  equipment?: EquipmentItem[];
+  budget?: number | null;
+  payment_status?: PaymentStatus | null;
+}
+
+export async function updateLead(id: string, updates: LeadUpdateInput): Promise<Lead | null> {
   const ref = leadsCol.doc(id);
   const doc = await ref.get();
   if (!doc.exists) return null;
@@ -172,4 +230,32 @@ export async function updateLead(
 
   const updated = await ref.get();
   return normalizeLeadDoc(updated.id, updated.data()!);
+}
+
+export async function duplicateLead(
+  id: string,
+  newStartDate: string,
+  newEndDate: string | null,
+  dateLabel: string | null
+): Promise<Lead | null> {
+  const source = await getLeadById(id);
+  if (!source) return null;
+  return createLead({
+    name: source.name,
+    section: source.section === "manual" ? "manual" : source.section,
+    start_date: newStartDate,
+    end_date: newEndDate,
+    date_label: dateLabel,
+    sub: source.sub,
+    local: source.local,
+    angle: source.angle,
+    link: source.link,
+    start_time: source.start_time,
+    end_time: source.end_time,
+    service_type: source.service_type,
+    team: source.team,
+    equipment: source.equipment.map((e) => ({ item: e.item, checked: false })),
+    budget: source.budget,
+    payment_status: null,
+  });
 }

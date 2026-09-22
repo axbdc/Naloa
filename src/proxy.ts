@@ -8,7 +8,9 @@ function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
   if (pathname.startsWith("/partilha/")) return true;
   if (pathname.startsWith("/api/partilha/")) return true;
+  if (pathname.startsWith("/api/ical/")) return true;
   if (pathname.startsWith("/_next") || pathname === "/favicon.ico") return true;
+  if (pathname === "/manifest.json" || pathname === "/sw.js" || pathname.startsWith("/icons/")) return true;
   return false;
 }
 

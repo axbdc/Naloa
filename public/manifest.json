@@ -1,0 +1,16 @@
+{
+  "name": "Naloa · Radar de Prospeção",
+  "short_name": "Naloa",
+  "description": "Tabela de leads e calendário privado da Naloa.",
+  "start_url": "/leads",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f5f2",
+  "theme_color": "#171916",
+  "lang": "pt",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

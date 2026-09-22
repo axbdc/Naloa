@@ -5,8 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { Lead } from "@/lib/db";
 
 const inputClass =
-  "w-full bg-[#f4f5f2] border border-[#d8dbd3] rounded-lg px-3 py-2 text-[14px] outline-none focus:border-[#171916] transition-colors";
-const labelClass = "text-[11px] uppercase tracking-wide text-[#565b53] mb-1 block";
+  "w-full bg-[var(--c-bg)] border border-[var(--c-border)] rounded-lg px-3 py-2 text-[14px] outline-none focus:border-[var(--c-ink)] transition-colors";
+const labelClass = "text-[11px] uppercase tracking-wide text-[var(--c-muted)] mb-1 block";
 
 export default function NewEventModal({ onCreated }: { onCreated: (lead: Lead) => void }) {
   const [open, setOpen] = useState(false);
@@ -63,7 +63,7 @@ export default function NewEventModal({ onCreated }: { onCreated: (lead: Lead) =
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        className="bg-[#c76a1f] text-white text-sm font-medium rounded-full px-4 py-2 shadow-sm"
+        className="bg-[var(--c-accent)] text-[var(--c-on-accent)] text-sm font-medium rounded-full px-4 py-2 shadow-sm"
       >
         + Novo evento
       </motion.button>
@@ -86,14 +86,14 @@ export default function NewEventModal({ onCreated }: { onCreated: (lead: Lead) =
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 24, scale: 0.98 }}
               transition={{ type: "spring", stiffness: 340, damping: 32 }}
-              className="w-full sm:w-[440px] bg-white rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
+              className="w-full sm:w-[440px] bg-[var(--c-card)] rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold">Novo evento</h2>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="text-[#9a9d97] hover:text-[#171916] text-xl leading-none"
+                  className="text-[var(--c-muted-2)] hover:text-[var(--c-ink)] text-xl leading-none"
                 >
                   ×
                 </button>
@@ -165,7 +165,7 @@ export default function NewEventModal({ onCreated }: { onCreated: (lead: Lead) =
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="flex-1 border border-[#d8dbd3] rounded-full py-2.5 text-sm font-medium hover:bg-[#f4f5f2] transition-colors"
+                  className="flex-1 border border-[var(--c-border)] rounded-full py-2.5 text-sm font-medium hover:bg-[var(--c-bg)] transition-colors"
                 >
                   Cancelar
                 </button>
@@ -173,7 +173,7 @@ export default function NewEventModal({ onCreated }: { onCreated: (lead: Lead) =
                   type="submit"
                   disabled={saving}
                   whileTap={{ scale: 0.97 }}
-                  className="flex-1 bg-[#171916] text-white rounded-full py-2.5 text-sm font-medium disabled:opacity-50"
+                  className="flex-1 bg-[var(--c-button-primary-bg)] text-[var(--c-button-primary-text)] rounded-full py-2.5 text-sm font-medium disabled:opacity-50"
                 >
                   {saving ? "A guardar…" : "Criar evento"}
                 </motion.button>

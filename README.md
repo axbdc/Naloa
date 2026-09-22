@@ -14,17 +14,49 @@ e contacto de cada lead) + calendário partilhável por link.
   "Adicionados por ti".
 - **Base de dados:** Firebase Firestore (plano gratuito Spark, mais do que suficiente
   para este volume de dados).
+- **Calendário em grelha.** Vista de mês tipo calendário normal (dias em grelha, não
+  lista), com os eventos desse dia dentro de cada célula — dá para alternar para a
+  vista em lista a qualquer momento ("Grelha" / "Lista").
+- **Ficha de evento completa.** Ao clicar num evento (na tabela, no kanban ou no
+  calendário) abre-se um painel com hora de início/fim, tipo de serviço (fotografia,
+  vídeo, fotografia + vídeo, drone, outro), equipa/pessoas envolvidas, checklist de
+  material necessário (com checkboxes), orçamento e estado de pagamento (pendente /
+  pago), além dos campos já existentes (redes sociais, site, contacto, notas).
+- **Modo escuro / claro.** Botão no topo (ao lado do "Sair") alterna entre os dois; a
+  escolha fica guardada no browser e respeita por omissão o tema do sistema.
+- **Vista kanban.** Nos leads, além da tabela por setor há uma vista kanban (Por
+  contactar / Contactado / Fechado) com drag-and-drop para mudar o estado.
+- **Duplicar evento.** Dentro da ficha de um evento, "Duplicar evento" cria uma cópia
+  com novas datas (útil para eventos recorrentes).
+- **Exportar calendário (.ics).** Cada link de partilha do calendário tem também um
+  "Copiar link .ics" — cola esse link no Calendário do iPhone/Google Calendar
+  ("subscrever calendário") e os eventos aparecem lá, sempre atualizados.
+- **Pesquisa.** Campo de pesquisa por nome/local, tanto na tabela de leads como no
+  calendário.
+- **Instalável como app (PWA).** No telemóvel, "Adicionar ao ecrã principal" (Safari/
+  Chrome) instala a Naloa como app, com ícone próprio — sem custo nenhum, não é a App
+  Store/Play Store, é só o browser a guardar um atalho. Os dados são sempre pedidos
+  em direto (não há cache offline), para nunca mostrares informação desatualizada.
 
 ## Estrutura
 
-- `src/app/(app)/leads` — tabela de leads, agrupada por setor, com botões de estado
-  (Por contactar / Contactado / Fechado) e campos editáveis (redes sociais, site,
-  contacto, notas).
-- `src/app/(app)/calendario` — todos os eventos com data, agrupados por mês, com
-  partilha por link.
+- `src/app/(app)/leads` — tabela de leads (vista tabela ou kanban), agrupada por
+  setor, com botões de estado (Por contactar / Contactado / Fechado), pesquisa e
+  campos editáveis (redes sociais, site, contacto, notas).
+- `src/app/(app)/event-detail-modal.tsx` — a ficha de evento partilhada (usada pela
+  tabela, pelo kanban e pelo calendário): horas, tipo de serviço, equipa, material,
+  orçamento/pagamento e a opção de duplicar.
+- `src/app/(app)/calendario` — calendário em grelha (com alternativa em lista),
+  agrupado por mês, com partilha por link e exportação `.ics`.
+- `src/app/(app)/theme-toggle.tsx` — o botão de modo escuro/claro.
 - `src/app/partilha/[token]` — página pública (sem login) que mostra um evento ou o
   calendário completo consoante o link partilhado.
-- `src/app/login` — a única página acessível sem sessão, além de `/partilha/*`.
+- `src/app/api/ical/[token]` — gera o ficheiro `.ics` para o link de partilha do
+  calendário.
+- `src/app/login` — a única página acessível sem sessão, além de `/partilha/*` e
+  `/api/ical/*`.
+- `public/manifest.json`, `public/sw.js`, `public/icons/` — configuração da app
+  instalável (PWA).
 - `seed/` — dados iniciais (os leads pesquisados) + script de seed para o Firestore.
 
 ## Criar o projeto Firebase (uma vez só)
